@@ -2,6 +2,7 @@ package com.infodation.userservice.services;
 
 import com.infodation.userservice.mapper.UserMapper;
 import com.infodation.userservice.models.Role;
+import com.infodation.userservice.models.TaskDTO.TaskAssignmentDTO;
 import com.infodation.userservice.models.TaskDTO.TaskDTO;
 import com.infodation.userservice.models.TaskDTO.TaskUserResponseDTO;
 import com.infodation.userservice.models.User;
@@ -14,12 +15,14 @@ import com.infodation.userservice.services.iservice.IUserService;
 import com.opencsv.CSVReader;
 import java.util.ArrayList;
 import com.opencsv.exceptions.CsvValidationException;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
@@ -27,7 +30,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.BufferedReader;
@@ -55,7 +58,25 @@ public class UserServiceImpl implements IUserService {
     }
     @Value("${task.service.baseUrl}")
     private String taskServiceBaseUrl;
-
+    @Override
+    public TaskAssignmentDTO createTaskAssignment(@RequestBody TaskAssignmentDTO taskAssignmentDTO) {
+        Optional<User> userOptional = userRepository.findByUserId(taskAssignmentDTO.getUserId());
+        if (userOptional.isEmpty()) {
+            logger.warn("User with ID: {} not found.", taskAssignmentDTO.getUserId());
+            throw new IllegalArgumentException("User not found");
+        }
+        Long userId = userOptional.get().getId();
+        taskAssignmentDTO.setUserId(String.valueOf(userId));
+        String taskServiceUrl = taskServiceBaseUrl + "/api/tasks/assign";
+        try {
+            RestTemplate restTemplate = new RestTemplate();
+            ResponseEntity<Void> response = restTemplate.exchange(
+                    taskServiceUrl, HttpMethod.POST, new HttpEntity<>(taskAssignmentDTO), Void.class);
+        } catch (Exception e) {
+            logger.error("Failed to communicate with task-service for task assignment.", e);
+        }
+        return taskAssignmentDTO;
+    }
     @Override
     public TaskUserResponseDTO getUserWithTasks(String userId) {
         try {
