@@ -12,8 +12,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
-
 @Component
 public class SpiceDBClient {
     private static final Logger logger = LoggerFactory.getLogger(SpiceDBClient.class);
@@ -56,8 +54,24 @@ public class SpiceDBClient {
         }
         PermissionsServiceGrpc.PermissionsServiceBlockingStub permissionsService =
                 PermissionsServiceGrpc.newBlockingStub(channel).withCallCredentials(bearerToken);
+        Relationship relationship;
+        if (requestObj.getSubjectRelation() != null)
 
-        Relationship relationship = Relationship.newBuilder()
+            relationship = Relationship.newBuilder()
+                    .setResource(ObjectReference.newBuilder()
+                            .setObjectType(requestObj.getResourceType())
+                            .setObjectId(requestObj.getResourceId())
+                            .build())
+                    .setRelation(requestObj.getRelation())
+                    .setSubject(SubjectReference.newBuilder()
+                            .setObject(ObjectReference.newBuilder()
+                                    .setObjectType(requestObj.getSubjectType())
+                                    .setObjectId(requestObj.getSubjectId())
+                                    .build())
+                            .setOptionalRelation(requestObj.getSubjectRelation())
+                            .build())
+                    .build();
+        else  relationship = Relationship.newBuilder()
                 .setResource(ObjectReference.newBuilder()
                         .setObjectType(requestObj.getResourceType())
                         .setObjectId(requestObj.getResourceId())
@@ -92,7 +106,68 @@ public class SpiceDBClient {
         }
     }
 
-    public Boolean checkPermission(AssignPermissionRequest requestObj) {
+    public Boolean assignPermissionAsBoolean(AssignPermissionRequest requestObj) {
+        ManagedChannel channel = ManagedChannelBuilder.forTarget(zedHost + ":" + zedPort).usePlaintext().build();
+        BearerToken bearerToken = new BearerToken(token);
+        if (channel == null) {
+            logger.error("Channel is null");
+            return false;
+        }
+        PermissionsServiceGrpc.PermissionsServiceBlockingStub permissionsService =
+                PermissionsServiceGrpc.newBlockingStub(channel).withCallCredentials(bearerToken);
+        Relationship relationship;
+        if (requestObj.getSubjectRelation() != null)
+
+            relationship = Relationship.newBuilder()
+                    .setResource(ObjectReference.newBuilder()
+                            .setObjectType(requestObj.getResourceType())
+                            .setObjectId(requestObj.getResourceId())
+                            .build())
+                    .setRelation(requestObj.getRelation())
+                    .setSubject(SubjectReference.newBuilder()
+                            .setObject(ObjectReference.newBuilder()
+                                    .setObjectType(requestObj.getSubjectType())
+                                    .setObjectId(requestObj.getSubjectId())
+                                    .build())
+                            .setOptionalRelation(requestObj.getSubjectRelation())
+                            .build())
+                    .build();
+        else  relationship = Relationship.newBuilder()
+                .setResource(ObjectReference.newBuilder()
+                        .setObjectType(requestObj.getResourceType())
+                        .setObjectId(requestObj.getResourceId())
+                        .build())
+                .setRelation(requestObj.getRelation())
+                .setSubject(SubjectReference.newBuilder()
+                        .setObject(ObjectReference.newBuilder()
+                                .setObjectType(requestObj.getSubjectType())
+                                .setObjectId(requestObj.getSubjectId())
+                                .build())
+                        .build())
+                .build();
+
+        try {
+            RelationshipUpdate update = RelationshipUpdate.newBuilder()
+                    .setOperation(RelationshipUpdate.Operation.OPERATION_CREATE)
+                    .setRelationship(relationship)
+                    .build();
+
+            WriteRelationshipsResponse response = permissionsService.writeRelationships(WriteRelationshipsRequest.newBuilder()
+                    .addUpdates(update)
+                    .build());
+            logger.info("Permission assigned successfully {}", response);
+            return true;
+        } catch (Exception e) {
+            logger.error("Error assigning permission", e);
+            return false;
+        } finally {
+            if (channel != null && !channel.isShutdown()) {
+                channel.shutdown();
+            }
+        }
+    }
+
+    public Boolean checkPermission(com.infodation.task_service.models.CheckPermissionRequest requestObj) {
         ManagedChannel channel = ManagedChannelBuilder.forTarget(zedHost + ":" + zedPort).usePlaintext().build();
         BearerToken bearerToken = new BearerToken(token);
         PermissionsServiceGrpc.PermissionsServiceBlockingStub permissionService =
@@ -103,7 +178,7 @@ public class SpiceDBClient {
                         .setObjectType(requestObj.getResourceType())
                         .setObjectId(requestObj.getResourceId())
                         .build())
-                .setPermission(requestObj.getRelation())
+                .setPermission(requestObj.getPermission())
                 .setSubject(SubjectReference.newBuilder()
                         .setObject(ObjectReference.newBuilder()
                                 .setObjectType(requestObj.getSubjectType())
@@ -116,5 +191,50 @@ public class SpiceDBClient {
         logger.info("Permission checked successfully {}", response.getPermissionship());
         channel.shutdown();
         return response.getPermissionship() == CheckPermissionResponse.Permissionship.PERMISSIONSHIP_HAS_PERMISSION;
+    }
+
+    public String removePermission(AssignPermissionRequest requestObj) {
+        ManagedChannel channel = ManagedChannelBuilder.forTarget(zedHost + ":" + zedPort).usePlaintext().build();
+        BearerToken bearerToken = new BearerToken(token);
+        if (channel == null) {
+            logger.error("Channel is null");
+            return "Channel is null";
+        }
+        PermissionsServiceGrpc.PermissionsServiceBlockingStub permissionsService =
+                PermissionsServiceGrpc.newBlockingStub(channel).withCallCredentials(bearerToken);
+
+        Relationship relationship = Relationship.newBuilder()
+                .setResource(ObjectReference.newBuilder()
+                        .setObjectType(requestObj.getResourceType())
+                        .setObjectId(requestObj.getResourceId())
+                        .build())
+                .setRelation(requestObj.getRelation())
+                .setSubject(SubjectReference.newBuilder()
+                        .setObject(ObjectReference.newBuilder()
+                                .setObjectType(requestObj.getSubjectType())
+                                .setObjectId(requestObj.getSubjectId())
+                                .build())
+                        .build())
+                .build();
+
+        try {
+            RelationshipUpdate update = RelationshipUpdate.newBuilder()
+                    .setOperation(RelationshipUpdate.Operation.OPERATION_DELETE)
+                    .setRelationship(relationship)
+                    .build();
+
+            WriteRelationshipsResponse response = permissionsService.writeRelationships(WriteRelationshipsRequest.newBuilder()
+                    .addUpdates(update)
+                    .build());
+            logger.info("Deleted permission successfully {}", response);
+            return "Deleted permission successfully " + response;
+        } catch (Exception e) {
+            logger.error("Error deleted permission", e);
+            return "Error deleted permission: " + e.getMessage();
+        } finally {
+            if (channel != null && !channel.isShutdown()) {
+                channel.shutdown();
+            }
+        }
     }
 }

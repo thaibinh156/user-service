@@ -1,8 +1,7 @@
-version: '3.80'
-
 services:
     spicedb:
         image: "authzed/spicedb"
+        container_name: spicedb_container
         command: "serve"
         restart: "always"
         ports:
@@ -11,7 +10,7 @@ services:
         environment:
             - "SPICEDB_GRPC_PRESHARED_KEY=foobar"
             - "SPICEDB_DATASTORE_ENGINE=mysql"
-            - "SPICEDB_DATASTORE_CONN_URI=root:secret@tcp(mysql_container:3306)/spicedb?parseTime=true"
+            - "SPICEDB_DATASTORE_CONN_URI=root:secret@tcp(mysql_spicedb_container:3306)/spicedb?parseTime=true"
         depends_on:
             - "migrate"
 
@@ -21,13 +20,13 @@ services:
         restart: "on-failure"
         environment:
             - "SPICEDB_DATASTORE_ENGINE=mysql"
-            - "SPICEDB_DATASTORE_CONN_URI=root:secret@tcp(mysql_container:3306)/spicedb?parseTime=true"
+            - "SPICEDB_DATASTORE_CONN_URI=root:secret@tcp(mysql_spicedb_container:3306)/spicedb?parseTime=true"
         depends_on:
-            - "database"
+            - "database_spicedb"
 
-    database:
+    database_spicedb:
         image: "mysql:8.0"
-        container_name: mysql_container
+        container_name: mysql_spicedb_container
         restart: always
         ports:
             - "3306:3306"
@@ -36,7 +35,9 @@ services:
             - "MYSQL_DATABASE=spicedb"
         volumes:
             - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-            - D:\mysql_data:/var/lib/mysql
+            - ./mysql-custom.cnf:/etc/mysql/conf.d/mysql-custom.cnf
+            # - D:/mysql_logs:/var/lib/mysql/logs
+            #- D:\mysql_data:/var/lib/mysql
 
     redis:
         image: redis:6.0

@@ -5,6 +5,7 @@ import com.infodation.task_service.models.TaskProjection;
 import com.infodation.task_service.models.dto.TaskAssignmentDTO;
 import com.infodation.task_service.models.dto.TaskAssignmentDTO;
 import com.infodation.task_service.models.dto.TaskCreateDTO;
+import com.infodation.task_service.models.dto.TaskUpdateDTO;
 import com.infodation.task_service.utils.ApiResponse;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -16,4 +17,7 @@ public interface ITaskService {
     List<TaskProjection> getTasksByUserId(Long userId);
     void assignTaskToUser(TaskAssignmentDTO taskAssignmentDTO);
     Task saveTask(TaskCreateDTO task);
+    Task getTaskById(Long taskId);
+    Task updateTask(Long taskId, TaskUpdateDTO taskUpdateDTO);
+    boolean deleteTask(Long taskId);
 }

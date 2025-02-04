@@ -1,33 +1,25 @@
 package com.infodation.task_service.models;
 
-public class AssignPermissionRequest {
+public class CheckPermissionRequest {
     String resourceId;
     String subjectId;
     String resourceType;
     String subjectType;
-    String relation;
-    String subjectRelation;
-    public AssignPermissionRequest() {
+    String permission;
+
+    public CheckPermissionRequest() {
     }
 
-    public AssignPermissionRequest(String resourceId, String subjectId, String resourceType, String subjectType, String relation) {
+    public CheckPermissionRequest(String resourceId, String subjectId, String resourceType, String subjectType, String permission) {
         this.resourceId = resourceId;
         this.subjectId = subjectId;
         this.resourceType = resourceType;
         this.subjectType = subjectType;
-        this.relation = relation;
+        this.permission = permission;
     }
 
-    public String getSubjectRelation() {
-        return subjectRelation;
-    }
-
-    public void setSubjectRelation(String subjectRelation) {
-        this.subjectRelation = subjectRelation;
-    }
-
-    public String getRelation() {
-        return relation;
+    public String getPermission() {
+        return permission;
     }
 
     public String getResourceId() {
@@ -62,7 +54,7 @@ public class AssignPermissionRequest {
         this.subjectType = subjectType;
     }
 
-    public void setRelation(String relation) {
-        this.relation = relation;
+    public void setPermission(String permission) {
+        this.permission = permission;
     }
 }

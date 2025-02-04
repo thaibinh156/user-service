@@ -3,10 +3,12 @@ package com.infodation.task_service.controllers;
 import com.infodation.task_service.client.SpiceDBClient;
 import com.infodation.task_service.components.JwtAuthenticationFilter;
 import com.infodation.task_service.models.AssignPermissionRequest;
+import com.infodation.task_service.models.CheckPermissionRequest;
 import com.infodation.task_service.models.Task;
 import com.infodation.task_service.models.TaskProjection;
 import com.infodation.task_service.models.dto.TaskAssignmentDTO;
 import com.infodation.task_service.models.dto.TaskCreateDTO;
+import com.infodation.task_service.models.dto.TaskUpdateDTO;
 import com.infodation.task_service.services.iServices.ITaskService;
 import com.infodation.task_service.utils.ApiResponse;
 import com.infodation.task_service.utils.ApiResponseUtil;
@@ -103,10 +105,10 @@ public class TasksController {
             status = HttpStatus.CREATED;
             // Assign permission to the task using the
             spiceDBClient.assignPermission(new AssignPermissionRequest(savedTask.getId().toString(),
-                    savedTask.getCreatedBy().toString(),
+                    createdBy,
                     "task",
                     "user",
-                    "create_by"));
+                    "owner"));
             log.info(message);
         } else {
             message = "Error occurred while creating task";
@@ -114,42 +116,123 @@ public class TasksController {
             log.error(message);
         }
 
-        ApiResponse<?> response = ApiResponseUtil.buildApiResponse(null, HttpStatus.OK, message, null);
+        ApiResponse<?> response = ApiResponseUtil.buildApiResponse(null, HttpStatus.OK, message + "task_id: " +savedTask.getId(), null);
         return new ResponseEntity<>(response, status);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<?>> updateTask(@PathVariable("id") Long taskId,  @RequestBody TaskCreateDTO task) {
+    public ResponseEntity<ApiResponse<Task>> updateTask(
+            @PathVariable("id") Long taskId,
+            @RequestBody TaskUpdateDTO updatedTask) {
+
         String message;
         HttpStatus status;
-        log.info("Received request userID: {}", JwtAuthenticationFilter.USER_ID);
-        boolean hasPermission = spiceDBClient.checkPermission(new AssignPermissionRequest(taskId.toString(),
-                JwtAuthenticationFilter.USER_ID.toString(),
-                "task",
-                "user",
-                "create_by"));
+        Task data = null;
 
-        if (!hasPermission) {
-            message = "You do not have permission to update this task";
-            status = HttpStatus.FORBIDDEN;
-            log.error(message);
+        if (taskId == null) {
+            message = "Task ID is Null";
+            status = HttpStatus.BAD_REQUEST;
         } else {
-            log.info("Received request to update task with ID: {}", taskId);
-//            Task updatedTask = taskService.updateTask(taskId, task);
-//            if (updatedTask != null) {
-//                message = "Task updated successfully";
-//                status = HttpStatus.OK;
-//                log.info(message);
-//            } else {
-//                message = "Error occurred while updating task";
-//                status = HttpStatus.INTERNAL_SERVER_ERROR;
-//                log.error(message);
-//            }
-            message = "Ok you are owner of this task";
-            status = HttpStatus.OK;
+            boolean hasPermission = spiceDBClient.checkPermission(
+                    new CheckPermissionRequest(
+                            taskId.toString(),
+                            JwtAuthenticationFilter.USER_ID.toString(),
+                            "task",
+                            "user",
+                            "write"
+                    )
+            );
+
+            if (hasPermission) {
+                data = taskService.updateTask(taskId, updatedTask);
+                if (data == null) {
+                    message = "Task not found";
+                    status = HttpStatus.NOT_FOUND;
+                } else {
+                    message = "Task " + taskId + " updated successfully";
+                    status = HttpStatus.OK;
+                }
+            } else {
+                message = "You do not have permission to update this task";
+                status = HttpStatus.UNAUTHORIZED;
+            }
         }
 
-        ApiResponse<?> response = ApiResponseUtil.buildApiResponse(null, status, message, null);
+        ApiResponse<Task> response = ApiResponseUtil.buildApiResponse(data, status, message, null);
         return new ResponseEntity<>(response, status);
     }
+
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<Task>> getTaskById(@PathVariable("id") Long taskId) {
+        String message;
+        HttpStatus status;
+        Task data = null;
+
+        if (taskId == null) {
+            message = "task id is Null";
+            status = HttpStatus.BAD_REQUEST;
+        } else {
+            boolean hasPermission = spiceDBClient.checkPermission(new CheckPermissionRequest(taskId.toString(),
+                    JwtAuthenticationFilter.USER_ID.toString(),
+                    "task",
+                    "user",
+                    "read"));
+            if (hasPermission) {
+                data = taskService.getTaskById(taskId);
+                if (data == null) {
+                    message = "Not found";
+                    status = HttpStatus.NOT_FOUND;
+                } else {
+                    message = "Get task " + taskId + " successful";
+                    status = HttpStatus.OK;
+                }
+            } else {
+                message = "You can not can read this task";
+                status = HttpStatus.UNAUTHORIZED;
+            }
+
+        }
+        ApiResponse response = ApiResponseUtil.buildApiResponse(data, status, message, null);
+        return new ResponseEntity<>(response, status);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteTask(@PathVariable("id") Long taskId) {
+        String message;
+        HttpStatus status;
+
+        if (taskId == null) {
+            message = "Task ID is Null";
+            status = HttpStatus.BAD_REQUEST;
+        } else {
+            boolean hasPermission = spiceDBClient.checkPermission(
+                    new CheckPermissionRequest(
+                            taskId.toString(),
+                            JwtAuthenticationFilter.USER_ID.toString(),
+                            "task",
+                            "user",
+                            "delete"
+                    )
+            );
+
+            if (hasPermission) {
+                boolean deleted = taskService.deleteTask(taskId);
+                if (deleted) {
+                    message = "Task " + taskId + " deleted successfully";
+                    status = HttpStatus.OK;
+                } else {
+                    message = "Task not found";
+                    status = HttpStatus.NOT_FOUND;
+                }
+            } else {
+                message = "You do not have permission to delete this task";
+                status = HttpStatus.UNAUTHORIZED;
+            }
+        }
+
+        ApiResponse<Void> response = ApiResponseUtil.buildApiResponse(null, status, message, null);
+        return new ResponseEntity<>(response, status);
+    }
+
 }

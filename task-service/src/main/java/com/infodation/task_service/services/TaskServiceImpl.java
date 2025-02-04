@@ -1,8 +1,10 @@
 package com.infodation.task_service.services;
 
+import com.infodation.task_service.components.JwtAuthenticationFilter;
 import com.infodation.task_service.models.*;
 import com.infodation.task_service.models.dto.TaskAssignmentDTO;
 import com.infodation.task_service.models.dto.TaskCreateDTO;
+import com.infodation.task_service.models.dto.TaskUpdateDTO;
 import com.infodation.task_service.repositories.TaskAssignmentRepository;
 import com.infodation.task_service.components.BadRequestException;
 import com.infodation.task_service.models.TaskProjection;
@@ -150,7 +152,6 @@ public class TaskServiceImpl implements ITaskService {
         newTask.setCreatedAt(createAt);
         Date updateAt = dateFormatter.parse(row[UPDATED_AT_ROW_INDEX].substring(0, 23));
         newTask.setUpdatedAt(updateAt);
-
         return newTask;
     }
 
@@ -161,11 +162,45 @@ public class TaskServiceImpl implements ITaskService {
         newTask.setCategory(taskCategoryService.getCategoryById(task.getCategoryId()).orElse(null));
         newTask.setStatus(taskStatusService.getStatusById(task.getStatusId()).orElse(null));
         newTask.setPriority(Priority.valueOf(task.getPriority().toUpperCase()));
-        newTask.setCreatedBy(task.getUserId());
         newTask.setCreatedAt(new Date());
         newTask.setUpdatedAt(new Date());
         newTask.setPriority(Priority.valueOf(task.getPriority().toUpperCase()));
         return taskRepository.save(newTask);
+    }
+
+    @Override
+    public Task getTaskById(Long taskId) {
+        Task task = taskRepository.findById(taskId).orElse(null);
+        return task;
+    }
+
+    public Task updateTask(Long taskId, TaskUpdateDTO updatedTask) {
+        TaskStatus status = taskStatusService.getStatusById(updatedTask.getStatusId()).orElse(null);
+        if (status == null) {
+            status = taskStatusService.getStatusById(1L).orElse(null);
+        }
+        TaskStatus finalStatus = status;
+        TaskCategory category = taskCategoryService.getCategoryById(updatedTask.getCategoryId()).orElse(null);
+        if (category == null) {
+            category = taskCategoryService.getCategoryById(1L).orElse(null);
+        }
+        TaskCategory finalCategory = category;
+        return taskRepository.findById(taskId).map(existingTask -> {
+            existingTask.setTitle(updatedTask.getTitle());
+            existingTask.setDescription(updatedTask.getDescription());
+            existingTask.setStatus(finalStatus);
+            existingTask.setCategory(finalCategory);
+            return taskRepository.save(existingTask);
+        }).orElse(null);
+    }
+
+    @Override
+    public boolean deleteTask(Long taskId) {
+        return taskRepository.findById(taskId).map(task -> {
+            taskRepository.delete(task);
+            return true;
+        }).orElse(false);
+
     }
 
     public Task updateTask(Long taskId, TaskCreateDTO task) {
